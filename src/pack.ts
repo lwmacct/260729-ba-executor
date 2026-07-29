@@ -21,36 +21,54 @@ function packageName(specifier: string) {
   return segments[0];
 }
 
-function packageModuleUrl(specifier: string, cwd: string) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function packageRootExport(value: unknown) {
+  const rootExport = isRecord(value) && "." in value ? value["."] : value;
+  if (typeof rootExport === "string") return rootExport;
+  if (!isRecord(rootExport)) return undefined;
+  if (typeof rootExport.import === "string") return rootExport.import;
+  return typeof rootExport.default === "string" ? rootExport.default : undefined;
+}
+
+function packageDirectoryModuleUrl(packageDirectory: string, label: string) {
+  const directory = path.resolve(packageDirectory);
+  if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+    throw new Error(`Step Pack path must be a package directory: ${label}.`);
+  }
+  const manifestPath = path.join(directory, "package.json");
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`Step Pack directory must contain package.json: ${label}.`);
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+    exports?: unknown;
+  };
+  const entry = packageRootExport(manifest.exports);
+  if (!entry || !entry.startsWith("./")) {
+    throw new Error(
+      `Step Pack package must define a relative root exports import: ${label}.`,
+    );
+  }
+  const entryPath = path.resolve(directory, entry);
+  const relativeEntry = path.relative(directory, entryPath);
+  if (relativeEntry.startsWith("..") || path.isAbsolute(relativeEntry)) {
+    throw new Error(`Step Pack root export must stay inside its package: ${label}.`);
+  }
+  if (!fs.existsSync(entryPath) || !fs.statSync(entryPath).isFile()) {
+    throw new Error(`Step Pack root export does not exist; build the package first: ${label}.`);
+  }
+  return pathToFileURL(entryPath).href;
+}
+
+function installedPackageModuleUrl(specifier: string, cwd: string) {
   const name = packageName(specifier);
   let directory = path.resolve(cwd);
   while (true) {
     const packageDirectory = path.join(directory, "node_modules", name);
-    const manifestPath = path.join(packageDirectory, "package.json");
-    if (fs.existsSync(manifestPath)) {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
-        exports?: unknown;
-        main?: unknown;
-        module?: unknown;
-      };
-      const rootExport = manifest.exports && typeof manifest.exports === "object"
-        ? (manifest.exports as Record<string, unknown>)["."]
-        : manifest.exports;
-      const conditionalExport = rootExport && typeof rootExport === "object"
-        ? rootExport as Record<string, unknown>
-        : undefined;
-      const entry = typeof conditionalExport?.import === "string"
-        ? conditionalExport.import
-        : typeof conditionalExport?.default === "string"
-          ? conditionalExport.default
-          : typeof rootExport === "string"
-            ? rootExport
-            : typeof manifest.module === "string"
-              ? manifest.module
-              : typeof manifest.main === "string"
-                ? manifest.main
-                : "index.js";
-      return pathToFileURL(path.resolve(packageDirectory, entry)).href;
+    if (fs.existsSync(path.join(packageDirectory, "package.json"))) {
+      return packageDirectoryModuleUrl(packageDirectory, name);
     }
     const parent = path.dirname(directory);
     if (parent === directory) break;
@@ -64,13 +82,13 @@ export async function loadStepPack(
   cwd = process.cwd(),
 ): Promise<StepPack> {
   const normalized = specifier.trim();
-  if (!normalized) throw new Error("--pack requires a package or module path.");
+  if (!normalized) throw new Error("--pack requires a package name or directory.");
   const moduleSpecifier = isPathSpecifier(normalized)
-    ? pathToFileURL(path.resolve(cwd, normalized)).href
-    : packageModuleUrl(normalized, cwd);
+    ? packageDirectoryModuleUrl(path.resolve(cwd, normalized), normalized)
+    : installedPackageModuleUrl(normalized, cwd);
   const loaded = await import(moduleSpecifier) as { default?: unknown };
   if (loaded.default === undefined) {
-    throw new Error(`Step Pack module ${normalized} must have a default export.`);
+    throw new Error(`Step Pack package ${normalized} must have a default export.`);
   }
   return parseStepPack(loaded.default);
 }

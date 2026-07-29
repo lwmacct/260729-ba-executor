@@ -3,7 +3,7 @@
 `BA` 是 Browser Automation（浏览器自动化）的缩写。
 
 `@lwmacct/260729-ba-executor` 是通用 Step Catalog Host。它可重复使用 `--pack` 加载
-多个已安装 npm 包或本地模块，启动时合并步骤并拒绝重复 Step ID。Executor 不包含任何
+多个已安装 npm 包或本地包目录，启动时合并步骤并拒绝重复 Step ID。Executor 不包含任何
 OpenAI、Grok、Playwright 或特定 workflow 逻辑。
 
 ## 安装与 Pack 装配
@@ -12,16 +12,21 @@ OpenAI、Grok、Playwright 或特定 workflow 逻辑。
 pnpm add @lwmacct/260729-ba-executor @scope/example-step-pack
 ```
 
-`--pack` 可重复传入已安装包的根名称或本地构建模块路径。每个模块必须默认导出一个
-`defineStepPack(...)` 结果；启动时会校验 Pack 并合并 Catalog。Pack 的安装和分发方式
-由对应仓库决定。
+`--pack` 可重复传入已安装包的根名称或包含 `package.json` 的本地包目录。包必须通过
+根 `exports` 声明相对 ESM 入口，并默认导出 `defineStepPack(...)` 结果；启动时会校验
+Pack 并合并 Catalog。任意 JavaScript 文件路径不再是合法 Pack 加载目标。
+
+在 Step Pack 仓库完成构建后，可以直接加载当前包：
+
+```bash
+ba-executor serve --pack . --port 3000
+```
 
 ## HTTP Host
 
 ```bash
 ba-executor serve \
   --pack @scope/example-step-pack \
-  --pack ./dist/local-pack.js \
   --port 3000
 ```
 

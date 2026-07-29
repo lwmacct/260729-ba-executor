@@ -52,7 +52,9 @@ function isLoopbackHost(host: string) {
 export async function runCli(argv = process.argv.slice(2)) {
   const [command, ...args] = argv;
   if (command !== "serve" && command !== "run") {
-    throw new Error("Usage: ba-executor <serve|run> --pack <package-or-path> [...options]");
+    throw new Error(
+      "Usage: ba-executor <serve|run> --pack <package-or-directory> [...options]",
+    );
   }
   const packs = await loadStepPacks(repeatedArguments(args, "--pack"));
   const executor = createCatalogExecutor(packs);

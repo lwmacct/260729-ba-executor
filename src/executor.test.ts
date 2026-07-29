@@ -22,21 +22,54 @@ const echo = defineStep({
 const pack = defineStepPack({ id: "test/core", steps: [echo] });
 const executor = createCatalogExecutor([pack]);
 
-test("loads a default-exported Step Pack from a module path", async () => {
+test("loads the current Step Pack from a package directory", async (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ba-pack-"));
-  const packPath = path.join(directory, "pack.mjs");
+  context.after(() => fs.rmSync(directory, { recursive: true }));
+  fs.mkdirSync(path.join(directory, "dist"));
   fs.writeFileSync(
-    packPath,
+    path.join(directory, "package.json"),
+    JSON.stringify({
+      name: "@example/local-steps",
+      type: "module",
+      exports: { ".": { import: "./dist/index.js" } },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(directory, "dist", "index.js"),
     `export default ${JSON.stringify({ kind: "step-pack", version: 1, id: "loaded", steps: [] })};\n`,
   );
-  assert.equal((await loadStepPack(packPath)).id, "loaded");
-  const invalidPath = path.join(directory, "invalid.mjs");
-  fs.writeFileSync(invalidPath, "export const value = true;\n");
-  await assert.rejects(loadStepPack(invalidPath), /default export/);
+  assert.equal((await loadStepPack(".", directory)).id, "loaded");
+
+  const filePath = path.join(directory, "dist", "index.js");
+  await assert.rejects(loadStepPack(filePath), /must be a package directory/);
 });
 
-test("loads an installed Step Pack relative to the deployment directory", async () => {
+test("requires a built root package export", async (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ba-pack-invalid-"));
+  context.after(() => fs.rmSync(directory, { recursive: true }));
+  fs.writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({ name: "@example/invalid-steps", type: "module" }),
+  );
+  await assert.rejects(
+    loadStepPack(".", directory),
+    /must define a relative root exports import/,
+  );
+
+  fs.writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({
+      name: "@example/invalid-steps",
+      type: "module",
+      exports: { ".": { import: "./dist/index.js" } },
+    }),
+  );
+  await assert.rejects(loadStepPack(".", directory), /build the package first/);
+});
+
+test("loads an installed Step Pack relative to the deployment directory", async (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ba-package-"));
+  context.after(() => fs.rmSync(directory, { recursive: true }));
   const packageDirectory = path.join(directory, "node_modules", "@example", "steps");
   fs.mkdirSync(path.join(packageDirectory, "dist"), { recursive: true });
   fs.writeFileSync(

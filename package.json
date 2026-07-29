@@ -1,6 +1,6 @@
 {
   "name": "@lwmacct/260729-ba-executor",
-  "version": "0.5.260730",
+  "version": "0.6.260730",
   "description": "Generic HTTP and CLI executor host for composable Baton Step Packs",
   "license": "Apache-2.0",
   "repository": {
