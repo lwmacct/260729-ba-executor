@@ -1,0 +1,12 @@
+packages:
+  - "."
+
+enableGlobalVirtualStore: false
+
+minimumReleaseAge: 1440
+
+minimumReleaseAgeExclude:
+  - "@lwmacct/*"
+
+allowBuilds:
+  esbuild: true
