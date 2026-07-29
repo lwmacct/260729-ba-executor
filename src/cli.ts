@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { startDevelopmentHost } from "./dev.js";
 import { createCatalogExecutor } from "./executor.js";
 import { loadStepPacks } from "./pack.js";
 import { runBatonFile } from "./run.js";
@@ -51,12 +52,22 @@ function isLoopbackHost(host: string) {
 
 export async function runCli(argv = process.argv.slice(2)) {
   const [command, ...args] = argv;
-  if (command !== "serve" && command !== "run") {
+  if (command !== "dev" && command !== "serve" && command !== "run") {
     throw new Error(
-      "Usage: ba-executor <serve|run> --pack <package-or-directory> [...options]",
+      "Usage: ba-executor <dev|serve|run> --pack <package-or-directory> [...options]",
     );
   }
-  const packs = await loadStepPacks(repeatedArguments(args, "--pack"));
+  const packSpecifiers = repeatedArguments(args, "--pack");
+  if (command === "dev") {
+    if (packSpecifiers.length !== 1) {
+      throw new Error("Development mode requires exactly one --pack directory.");
+    }
+    return startDevelopmentHost({
+      packSpecifier: packSpecifiers[0]!,
+      serveArgs: args,
+    });
+  }
+  const packs = await loadStepPacks(packSpecifiers);
   const executor = createCatalogExecutor(packs);
   if (command === "serve") {
     const port = portArgument(args);

@@ -22,6 +22,17 @@ Pack 并合并 Catalog。任意 JavaScript 文件路径不再是合法 Pack 加�
 ba-executor serve --pack . --port 3000
 ```
 
+## Pack 开发模式
+
+```bash
+ba-executor dev --pack . --port 3000
+```
+
+`dev` 只接受一个本地 Pack 目录。该目录必须声明 `packageManager`、`scripts.build` 并包含
+`src/`。Executor 会监听源码、`package.json` 和 `tsconfig*.json`，每次变更后运行构建；
+构建成功才重启 HTTP Host，构建失败时保留上一个可用 Host 并继续监听。Host 使用独立
+进程，因此不会受到 ESM module cache 影响。
+
 ## HTTP Host
 
 ```bash

@@ -7,6 +7,7 @@ import { applyBatonCommand, createBaton, createBatonEntry } from "@lwmacct/26072
 import { defineStepPack } from "@lwmacct/260729-ba-framework/pack";
 import { defineStep, output, stepResult, stringInput } from "@lwmacct/260729-ba-framework/step";
 import { createCatalogExecutor } from "./executor.js";
+import { startDevelopmentHost } from "./dev.js";
 import { loadStepPack } from "./pack.js";
 import { runBatonFile } from "./run.js";
 import { createExecutorServer } from "./server.js";
@@ -21,6 +22,15 @@ const echo = defineStep({
 });
 const pack = defineStepPack({ id: "test/core", steps: [echo] });
 const executor = createCatalogExecutor([pack]);
+
+async function waitUntil(condition: () => boolean, message: string) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(message);
+}
 
 test("loads the current Step Pack from a package directory", async (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ba-pack-"));
@@ -86,6 +96,89 @@ test("loads an installed Step Pack relative to the deployment directory", async 
   );
   assert.equal((await loadStepPack("@example/steps", directory)).id, "installed");
   await assert.rejects(loadStepPack("@example/missing", directory), /not installed/);
+});
+
+test("rebuilds and restarts a local Step Pack development host", async (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ba-dev-"));
+  context.after(() => fs.rmSync(directory, { recursive: true }));
+  fs.mkdirSync(path.join(directory, "src"));
+  fs.writeFileSync(path.join(directory, "src", "index.ts"), "export {};\n");
+  fs.writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({
+      name: "@example/dev-steps",
+      packageManager: "pnpm@11.17.0",
+      scripts: { build: "node build.mjs" },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(directory, "build.mjs"),
+    `import fs from "node:fs";\nconst file = "build-count";\nconst count = fs.existsSync(file) ? Number(fs.readFileSync(file, "utf8")) : 0;\nfs.writeFileSync(file, String(count + 1));\n`,
+  );
+  const hostModulePath = path.join(directory, "host.mjs");
+  fs.writeFileSync(
+    hostModulePath,
+    `import fs from "node:fs";\nfs.appendFileSync("host-runs", JSON.stringify({ pid: process.pid, args: process.argv.slice(2) }) + "\\n");\nsetInterval(() => {}, 1000);\n`,
+  );
+
+  const developmentHost = await startDevelopmentHost({
+    cwd: directory,
+    debounceMs: 20,
+    mainModulePath: hostModulePath,
+    packSpecifier: ".",
+    serveArgs: ["--pack", ".", "--port", "31234"],
+  });
+  context.after(() => developmentHost.close());
+  const hostRunsPath = path.join(directory, "host-runs");
+  await waitUntil(() => fs.existsSync(hostRunsPath), "initial development host did not start");
+
+  fs.writeFileSync(path.join(directory, "src", "index.ts"), "export const changed = true;\n");
+  await waitUntil(
+    () => fs.readFileSync(path.join(directory, "build-count"), "utf8") === "2",
+    "source change did not trigger a rebuild",
+  );
+  await waitUntil(
+    () => fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length === 2,
+    "successful rebuild did not restart the host",
+  );
+  const runs = fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").map((line) =>
+    JSON.parse(line) as { args: string[]; pid: number }
+  );
+  assert.notEqual(runs[0]?.pid, runs[1]?.pid);
+  assert.deepEqual(runs[1]?.args, ["serve", "--pack", ".", "--port", "31234"]);
+
+  fs.writeFileSync(
+    path.join(directory, "fail.mjs"),
+    `import fs from "node:fs";\nfs.writeFileSync("build-failed", "true");\nprocess.exit(1);\n`,
+  );
+  fs.writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({
+      name: "@example/dev-steps",
+      packageManager: "pnpm@11.17.0",
+      scripts: { build: "node fail.mjs" },
+    }),
+  );
+  await waitUntil(
+    () => fs.existsSync(path.join(directory, "build-failed")),
+    "failing build was not attempted",
+  );
+  assert.equal(fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length, 2);
+  assert.doesNotThrow(() => process.kill(runs[1]!.pid, 0));
+
+  fs.writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({
+      name: "@example/dev-steps",
+      packageManager: "pnpm@11.17.0",
+      scripts: { build: "node build.mjs" },
+    }),
+  );
+  await waitUntil(
+    () => fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length === 3,
+    "development host did not recover after the build was fixed",
+  );
+  await developmentHost.close();
 });
 
 test("merges packs into a catalog and executes namespaced steps", async () => {
