@@ -118,7 +118,7 @@ test("rebuilds and restarts a local Step Pack development host", async (context)
   const hostModulePath = path.join(directory, "host.mjs");
   fs.writeFileSync(
     hostModulePath,
-    `import fs from "node:fs";\nfs.appendFileSync("host-runs", JSON.stringify({ pid: process.pid, args: process.argv.slice(2) }) + "\\n");\nsetInterval(() => {}, 1000);\n`,
+    `import fs from "node:fs";\nconst command = process.argv[2];\nif (command === "validate") {\n  fs.appendFileSync("validations", "validated\\n");\n  if (fs.existsSync("reject-validation")) {\n    fs.writeFileSync("validation-failed", "true");\n    process.exit(1);\n  }\n  process.exit(0);\n}\nif (command === "serve") {\n  fs.appendFileSync("host-runs", JSON.stringify({ pid: process.pid, args: process.argv.slice(2) }) + "\\n");\n  if (process.send) process.send({ type: "ba-executor-ready" });\n  setInterval(() => {}, 1000);\n}\n`,
   );
 
   const developmentHost = await startDevelopmentHost({
@@ -126,11 +126,20 @@ test("rebuilds and restarts a local Step Pack development host", async (context)
     debounceMs: 20,
     mainModulePath: hostModulePath,
     packSpecifier: ".",
+    pollIntervalMs: 20,
     serveArgs: ["--pack", ".", "--port", "31234"],
+    usePolling: true,
   });
   context.after(() => developmentHost.close());
   const hostRunsPath = path.join(directory, "host-runs");
   await waitUntil(() => fs.existsSync(hostRunsPath), "initial development host did not start");
+  assert.equal(developmentHost.getState(), "running");
+
+  fs.mkdirSync(path.join(directory, "node_modules"));
+  fs.writeFileSync(path.join(directory, "node_modules", "ignored.ts"), "export {};\n");
+  fs.writeFileSync(path.join(directory, "src", "ignored.txt"), "ignored\n");
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(fs.readFileSync(path.join(directory, "build-count"), "utf8"), "1");
 
   fs.writeFileSync(path.join(directory, "src", "index.ts"), "export const changed = true;\n");
   await waitUntil(
@@ -146,6 +155,7 @@ test("rebuilds and restarts a local Step Pack development host", async (context)
   );
   assert.notEqual(runs[0]?.pid, runs[1]?.pid);
   assert.deepEqual(runs[1]?.args, ["serve", "--pack", ".", "--port", "31234"]);
+  assert.equal(fs.readFileSync(path.join(directory, "validations"), "utf8").trim().split("\n").length, 2);
 
   fs.writeFileSync(
     path.join(directory, "fail.mjs"),
@@ -163,8 +173,14 @@ test("rebuilds and restarts a local Step Pack development host", async (context)
     () => fs.existsSync(path.join(directory, "build-failed")),
     "failing build was not attempted",
   );
+  await waitUntil(
+    () => developmentHost.getState() === "failed",
+    "failing build did not move the development host to failed",
+  );
   assert.equal(fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length, 2);
+  assert.equal(fs.readFileSync(path.join(directory, "validations"), "utf8").trim().split("\n").length, 2);
   assert.doesNotThrow(() => process.kill(runs[1]!.pid, 0));
+  assert.equal(developmentHost.getState(), "failed");
 
   fs.writeFileSync(
     path.join(directory, "package.json"),
@@ -178,7 +194,35 @@ test("rebuilds and restarts a local Step Pack development host", async (context)
     () => fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length === 3,
     "development host did not recover after the build was fixed",
   );
+  assert.equal(developmentHost.getState(), "running");
+
+  const rejectionMarker = path.join(directory, "reject-validation");
+  fs.writeFileSync(rejectionMarker, "true");
+  fs.writeFileSync(path.join(directory, "src", "index.ts"), "export const invalid = true;\n");
+  await waitUntil(
+    () => fs.existsSync(path.join(directory, "validation-failed")),
+    "failing Pack validation was not attempted",
+  );
+  await waitUntil(
+    () => developmentHost.getState() === "failed",
+    "failing validation did not move the development host to failed",
+  );
+  assert.equal(fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length, 3);
+  const thirdRun = JSON.parse(
+    fs.readFileSync(hostRunsPath, "utf8").trim().split("\n")[2]!,
+  ) as { pid: number };
+  assert.doesNotThrow(() => process.kill(thirdRun.pid, 0));
+  assert.equal(developmentHost.getState(), "failed");
+
+  fs.rmSync(rejectionMarker);
+  fs.writeFileSync(path.join(directory, "src", "index.ts"), "export const valid = true;\n");
+  await waitUntil(
+    () => fs.readFileSync(hostRunsPath, "utf8").trim().split("\n").length === 4,
+    "development host did not recover after Pack validation was fixed",
+  );
+  assert.equal(developmentHost.getState(), "running");
   await developmentHost.close();
+  assert.equal(developmentHost.getState(), "closed");
 });
 
 test("merges packs into a catalog and executes namespaced steps", async () => {

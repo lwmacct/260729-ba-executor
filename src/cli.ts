@@ -50,11 +50,21 @@ function isLoopbackHost(host: string) {
   return host === "127.0.0.1" || host === "::1" || host === "localhost";
 }
 
+function serverArguments(argv: readonly string[]) {
+  const port = portArgument(argv);
+  const host = hostArgument(argv);
+  const token = process.env.BA_EXECUTOR_TOKEN?.trim();
+  if (!isLoopbackHost(host) && !token) {
+    throw new Error("BA_EXECUTOR_TOKEN is required when --host is not loopback.");
+  }
+  return { host, port, token };
+}
+
 export async function runCli(argv = process.argv.slice(2)) {
   const [command, ...args] = argv;
-  if (command !== "dev" && command !== "serve" && command !== "run") {
+  if (command !== "dev" && command !== "serve" && command !== "run" && command !== "validate") {
     throw new Error(
-      "Usage: ba-executor <dev|serve|run> --pack <package-or-directory> [...options]",
+      "Usage: ba-executor <dev|serve|run|validate> --pack <package-or-directory> [...options]",
     );
   }
   const packSpecifiers = repeatedArguments(args, "--pack");
@@ -62,25 +72,28 @@ export async function runCli(argv = process.argv.slice(2)) {
     if (packSpecifiers.length !== 1) {
       throw new Error("Development mode requires exactly one --pack directory.");
     }
+    serverArguments(args);
+    const usePolling = args.includes("--poll") || process.env.BA_EXECUTOR_DEV_POLL === "1";
     return startDevelopmentHost({
       packSpecifier: packSpecifiers[0]!,
-      serveArgs: args,
+      serveArgs: args.filter((argument) => argument !== "--poll"),
+      usePolling,
     });
   }
   const packs = await loadStepPacks(packSpecifiers);
+  if (command === "validate") {
+    console.log(`Validated Step Packs: ${packs.map((pack) => pack.id).join(", ")}`);
+    return packs;
+  }
   const executor = createCatalogExecutor(packs);
   if (command === "serve") {
-    const port = portArgument(args);
-    const host = hostArgument(args);
-    const token = process.env.BA_EXECUTOR_TOKEN?.trim();
-    if (!isLoopbackHost(host) && !token) {
-      throw new Error("BA_EXECUTOR_TOKEN is required when --host is not loopback.");
-    }
+    const { host, port, token } = serverArguments(args);
     const app = createExecutorServer({ executor, token });
     return serve({ fetch: app.fetch, hostname: host, port }, () => {
       console.log(
         `BA executor (${packs.map((pack) => pack.id).join(", ")}) listening on http://${host}:${port}/api`,
       );
+      if (typeof process.send === "function") process.send({ type: "ba-executor-ready" });
     });
   }
   const mode = namedArgument(args, "--mode") ?? "single";

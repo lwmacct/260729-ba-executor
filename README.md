@@ -26,12 +26,24 @@ ba-executor serve --pack . --port 3000
 
 ```bash
 ba-executor dev --pack . --port 3000
+ba-executor dev --pack . --port 3000 --poll
 ```
 
 `dev` 只接受一个本地 Pack 目录。该目录必须声明 `packageManager`、`scripts.build` 并包含
-`src/`。Executor 会监听源码、`package.json` 和 `tsconfig*.json`，每次变更后运行构建；
-构建成功才重启 HTTP Host，构建失败时保留上一个可用 Host 并继续监听。Host 使用独立
-进程，因此不会受到 ESM module cache 影响。
+`src/`。Executor 使用 latest-wins 队列，只监听 `src/**/*.ts`、`package.json` 和已有的
+`tsconfig*.json`，不监听 `node_modules`，也不跟随符号链接。每次变更依次执行构建、隔离
+Pack 验证和 Host 重启。构建或验证失败时保留上一个可用 Host 并继续监听；新 Host 通过
+readiness 消息确认启动。Host 使用独立进程，因此不会受到 ESM module cache 影响。
+
+容器挂载目录无法稳定传递文件事件时使用 `--poll`，也可设置
+`BA_EXECUTOR_DEV_POLL=1`。开发监督器会终止完整 POSIX 子进程组，避免中断构建时遗留
+包管理器或编译器进程。
+
+只验证已构建的 Pack 根导出而不启动 Host：
+
+```bash
+ba-executor validate --pack .
+```
 
 ## HTTP Host
 
