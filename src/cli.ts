@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
-import { loadWorkflowBundle } from "./bundle.js";
-import { createBundleExecutor } from "./executor.js";
+import { createCatalogExecutor } from "./executor.js";
+import { loadStepPacks } from "./pack.js";
 import { runBatonFile } from "./run.js";
 import { createExecutorServer } from "./server.js";
 
@@ -10,6 +10,18 @@ function namedArgument(argv: readonly string[], name: string) {
   const value = argv[index + 1];
   if (!value || value.startsWith("--")) throw new Error(`${name} requires a value.`);
   return value;
+}
+
+function repeatedArguments(argv: readonly string[], name: string) {
+  const values: string[] = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] !== name) continue;
+    const value = argv[index + 1];
+    if (!value || value.startsWith("--")) throw new Error(`${name} requires a value.`);
+    values.push(value);
+    index += 1;
+  }
+  return values;
 }
 
 function requiredArgument(argv: readonly string[], name: string) {
@@ -27,18 +39,35 @@ function portArgument(argv: readonly string[]) {
   return port;
 }
 
+function hostArgument(argv: readonly string[]) {
+  const host = (namedArgument(argv, "--host") ?? "127.0.0.1").trim();
+  if (!host) throw new Error("--host requires a value.");
+  return host;
+}
+
+function isLoopbackHost(host: string) {
+  return host === "127.0.0.1" || host === "::1" || host === "localhost";
+}
+
 export async function runCli(argv = process.argv.slice(2)) {
   const [command, ...args] = argv;
   if (command !== "serve" && command !== "run") {
-    throw new Error("Usage: ba-executor <serve|run> --bundle <package-or-path> [...options]");
+    throw new Error("Usage: ba-executor <serve|run> --pack <package-or-path> [...options]");
   }
-  const bundle = await loadWorkflowBundle(requiredArgument(args, "--bundle"));
-  const executor = createBundleExecutor(bundle);
+  const packs = await loadStepPacks(repeatedArguments(args, "--pack"));
+  const executor = createCatalogExecutor(packs);
   if (command === "serve") {
     const port = portArgument(args);
-    const app = createExecutorServer({ executor, token: process.env.BA_EXECUTOR_TOKEN });
-    return serve({ fetch: app.fetch, port }, () => {
-      console.log(`BA executor (${bundle.id}) listening on http://127.0.0.1:${port}/api`);
+    const host = hostArgument(args);
+    const token = process.env.BA_EXECUTOR_TOKEN?.trim();
+    if (!isLoopbackHost(host) && !token) {
+      throw new Error("BA_EXECUTOR_TOKEN is required when --host is not loopback.");
+    }
+    const app = createExecutorServer({ executor, token });
+    return serve({ fetch: app.fetch, hostname: host, port }, () => {
+      console.log(
+        `BA executor (${packs.map((pack) => pack.id).join(", ")}) listening on http://${host}:${port}/api`,
+      );
     });
   }
   const mode = namedArgument(args, "--mode") ?? "single";

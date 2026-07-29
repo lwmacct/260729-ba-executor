@@ -15,11 +15,8 @@ importers:
         specifier: ^0.5.260729
         version: 0.5.260729
       '@lwmacct/260729-ba-framework':
-        specifier: ^0.3.260729
-        version: 0.3.260729
-      '@lwmacct/260729-ba-runtime':
-        specifier: ^0.2.260729
-        version: 0.2.260729
+        specifier: ^0.4.260729
+        version: 0.4.260729
       hono:
         specifier: ^4.12.32
         version: 4.12.32
@@ -202,12 +199,8 @@ packages:
     resolution: {integrity: sha512-DGY8rQoGu5B/pHcdfGPFjGNUy7ZCQ0yegHEjvy7/nMA4pi8BI8D/vzZktLLoQmV8Vr8xI1IGBme0WqXZZJfX7Q==}
     engines: {node: '>=20'}
 
-  '@lwmacct/260729-ba-framework@0.3.260729':
-    resolution: {integrity: sha512-MVxovbvEf1YlitbfTWksHM1POmNArrR9FJihqJNS/+ufvbqGPqBbvDAcmu8Ys5PSPO4kTSiqJANI7rSUA5rbFg==}
-    engines: {node: '>=20'}
-
-  '@lwmacct/260729-ba-runtime@0.2.260729':
-    resolution: {integrity: sha512-pHzxMuS9DSeLhbYVUh/V+b9jqK/4VLNkFmI0QTffkDjtNuChJYJAg4/+ARt8Xd4vgyTJ7G6egnKY+X6zkJdGuw==}
+  '@lwmacct/260729-ba-framework@0.4.260729':
+    resolution: {integrity: sha512-AqcItokPzuzrmab+pOx6ZsxPB4sv4TyEK5xOqfBFcb2oqUYCVpRV64QFXTme1nMHBhUDS0kQOvou/JtpXO9g1A==}
     engines: {node: '>=20'}
 
   '@types/node@26.1.2':
@@ -338,11 +331,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  fsevents@2.3.2:
-    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
-    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
-    os: [darwin]
-
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -351,16 +339,6 @@ packages:
   hono@4.12.32:
     resolution: {integrity: sha512-XcuyW9qE2kJn07PkecMOBd5Vq/hMy7mmGw+idz1yblbg9N17ijJODrvPkn7/dwL3Kulj8LcRJ69DLOWf91dRUg==}
     engines: {node: '>=16.9.0'}
-
-  playwright-core@1.62.0:
-    resolution: {integrity: sha512-nsNRyq0r2zsG8AcRHWknc9QRA5XCueC7gWMrs+Gx2tlZn9hcl8zudfh00lhJPY1DE7NmZ6bDsT9g2yey8mXljA==}
-    engines: {node: '>=20'}
-    hasBin: true
-
-  playwright@1.62.0:
-    resolution: {integrity: sha512-Z14dG305dgaLu6foB1TXQagFiW8JfSUIUaUuPaKQ6NtBPKF1P/qXcqfh6c6K/icPqdy37JmjbiBXf6JNg6Sylw==}
-    engines: {node: '>=20'}
-    hasBin: true
 
   tsx@4.23.1:
     resolution: {integrity: sha512-GQHnkIfxyx1wYCOS/wonik5MVRZU9hi1TEZmzGZSCJB1y9YgoZ8H6itNE/u4suE+yLmOzuE4E5S4TZ/ZX2wcWQ==}
@@ -461,14 +439,9 @@ snapshots:
 
   '@lwmacct/260729-ba-context-baton@0.5.260729': {}
 
-  '@lwmacct/260729-ba-framework@0.3.260729':
+  '@lwmacct/260729-ba-framework@0.4.260729':
     dependencies:
       '@lwmacct/260729-ba-context-baton': 0.5.260729
-
-  '@lwmacct/260729-ba-runtime@0.2.260729':
-    dependencies:
-      '@lwmacct/260729-ba-framework': 0.3.260729
-      playwright: 1.62.0
 
   '@types/node@26.1.2':
     dependencies:
@@ -563,21 +536,10 @@ snapshots:
       '@esbuild/win32-ia32': 0.28.1
       '@esbuild/win32-x64': 0.28.1
 
-  fsevents@2.3.2:
-    optional: true
-
   fsevents@2.3.3:
     optional: true
 
   hono@4.12.32: {}
-
-  playwright-core@1.62.0: {}
-
-  playwright@1.62.0:
-    dependencies:
-      playwright-core: 1.62.0
-    optionalDependencies:
-      fsevents: 2.3.2
 
   tsx@4.23.1:
     dependencies:

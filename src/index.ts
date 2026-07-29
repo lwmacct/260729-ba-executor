@@ -1,4 +1,4 @@
-export * from "./bundle.js";
+export * from "./pack.js";
 export * from "./cli.js";
 export * from "./executor.js";
 export * from "./run.js";

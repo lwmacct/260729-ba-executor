@@ -1,13 +1,10 @@
 import { Hono } from "hono";
 import type { StepInvocation } from "@lwmacct/260729-ba-context-baton";
-import { checkBrowserEndpoint, parseBrowserResource } from "@lwmacct/260729-ba-runtime";
-import type { BundleExecutor } from "./executor.js";
+import type { CatalogExecutor } from "./executor.js";
 
 export const API_PREFIX = "/api";
-const BROWSER_CHECK_TIMEOUT_MS = 5_000;
-
 export type ExecutorServerOptions = {
-  executor: BundleExecutor;
+  executor: CatalogExecutor;
   token?: string;
 };
 
@@ -34,7 +31,7 @@ export function createExecutorServer(options: ExecutorServerOptions) {
 
   app.get(`${API_PREFIX}/health`, (context) => context.json({
     ok: true,
-    workflowId: options.executor.bundle.id,
+    packs: options.executor.packs.map((pack) => pack.id),
   }));
 
   app.use(`${API_PREFIX}/*`, async (context, next) => {
@@ -50,17 +47,6 @@ export function createExecutorServer(options: ExecutorServerOptions) {
 
   app.get(`${API_PREFIX}/auth/verify`, (context) => context.json({ valid: true }));
   app.get(`${API_PREFIX}/manifest`, (context) => context.json(options.executor.manifest));
-  app.post(`${API_PREFIX}/browser/check`, async (context) => {
-    try {
-      const resource = parseBrowserResource(await context.req.json());
-      return context.json({
-        ok: true,
-        ...await checkBrowserEndpoint(resource, { timeoutMs: BROWSER_CHECK_TIMEOUT_MS }),
-      });
-    } catch (error) {
-      return context.json({ ok: false, error: errorMessage(error) }, 400);
-    }
-  });
   app.post(`${API_PREFIX}/steps/execute`, async (context) => {
     try {
       const invocation = await context.req.json<StepInvocation>();

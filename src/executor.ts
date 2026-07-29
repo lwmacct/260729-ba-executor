@@ -1,24 +1,17 @@
-import type { JsonValue } from "@lwmacct/260729-ba-context-baton";
-import type { WorkflowBundle } from "@lwmacct/260729-ba-framework/bundle";
+import type { StepPack } from "@lwmacct/260729-ba-framework/pack";
 import {
   createStepExecutor,
   createStepRegistry,
 } from "@lwmacct/260729-ba-framework/executor";
-import { createWorkflowExecutorManifest } from "@lwmacct/260729-ba-framework/manifest";
+import { createStepCatalogManifest } from "@lwmacct/260729-ba-framework/manifest";
 
-export function createBundleExecutor(bundle: WorkflowBundle) {
-  const registry = createStepRegistry(bundle.steps);
-  const execute = createStepExecutor({
-    registry,
-    createRuntimeContext(resources: Record<string, JsonValue>) {
-      return { resources };
-    },
+export function createCatalogExecutor(packs: readonly StepPack[]) {
+  const registry = createStepRegistry(packs.flatMap((pack) => pack.steps));
+  const execute = createStepExecutor({ registry });
+  const manifest = createStepCatalogManifest(packs, {
+    capabilities: ["steps.execute"],
   });
-  const manifest = createWorkflowExecutorManifest(registry.definitions, {
-    workflowId: bundle.id,
-    capabilities: ["browser.check", "steps.execute"],
-  });
-  return { bundle, execute, manifest, registry };
+  return { execute, manifest, packs, registry };
 }
 
-export type BundleExecutor = ReturnType<typeof createBundleExecutor>;
+export type CatalogExecutor = ReturnType<typeof createCatalogExecutor>;

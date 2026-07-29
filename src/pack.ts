@@ -1,10 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-  parseWorkflowBundle,
-  type WorkflowBundle,
-} from "@lwmacct/260729-ba-framework/bundle";
+import { parseStepPack, type StepPack } from "@lwmacct/260729-ba-framework/pack";
 
 function isPathSpecifier(specifier: string) {
   return specifier.startsWith(".") || path.isAbsolute(specifier);
@@ -14,12 +11,12 @@ function packageName(specifier: string) {
   const segments = specifier.split("/");
   if (specifier.startsWith("@")) {
     if (segments.length !== 2 || !segments[0] || !segments[1]) {
-      throw new Error(`Bundle package specifier must name a package root: ${specifier}.`);
+      throw new Error(`Step Pack specifier must name a package root: ${specifier}.`);
     }
     return segments.join("/");
   }
   if (segments.length !== 1 || !segments[0]) {
-    throw new Error(`Bundle package specifier must name a package root: ${specifier}.`);
+    throw new Error(`Step Pack specifier must name a package root: ${specifier}.`);
   }
   return segments[0];
 }
@@ -59,21 +56,29 @@ function packageModuleUrl(specifier: string, cwd: string) {
     if (parent === directory) break;
     directory = parent;
   }
-  throw new Error(`Bundle package is not installed from ${cwd}: ${name}.`);
+  throw new Error(`Step Pack package is not installed from ${cwd}: ${name}.`);
 }
 
-export async function loadWorkflowBundle(
+export async function loadStepPack(
   specifier: string,
   cwd = process.cwd(),
-): Promise<WorkflowBundle> {
+): Promise<StepPack> {
   const normalized = specifier.trim();
-  if (!normalized) throw new Error("--bundle requires a package or module path.");
+  if (!normalized) throw new Error("--pack requires a package or module path.");
   const moduleSpecifier = isPathSpecifier(normalized)
     ? pathToFileURL(path.resolve(cwd, normalized)).href
     : packageModuleUrl(normalized, cwd);
   const loaded = await import(moduleSpecifier) as { default?: unknown };
   if (loaded.default === undefined) {
-    throw new Error(`Bundle module ${normalized} must have a default export.`);
+    throw new Error(`Step Pack module ${normalized} must have a default export.`);
   }
-  return parseWorkflowBundle(loaded.default);
+  return parseStepPack(loaded.default);
+}
+
+export async function loadStepPacks(
+  specifiers: readonly string[],
+  cwd = process.cwd(),
+) {
+  if (specifiers.length === 0) throw new Error("At least one --pack is required.");
+  return Promise.all(specifiers.map((specifier) => loadStepPack(specifier, cwd)));
 }

@@ -2,12 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseBaton, type ContextBaton } from "@lwmacct/260729-ba-context-baton";
 import { entryIdsFrom, runBatonEntries } from "@lwmacct/260729-ba-framework/controller";
-import type { BundleExecutor } from "./executor.js";
+import type { CatalogExecutor } from "./executor.js";
 
 export type RunBatonFileOptions = {
   contextPath: string;
   entryId: string;
-  executor: BundleExecutor;
+  executor: CatalogExecutor;
   mode: "continue" | "single";
   signal?: AbortSignal;
 };
@@ -29,11 +29,6 @@ function writeBatonAtomic(contextPath: string, baton: ContextBaton) {
 export async function runBatonFile(options: RunBatonFileOptions) {
   const contextPath = path.resolve(options.contextPath);
   const baton = readBaton(contextPath);
-  if (baton.workflow.id !== options.executor.bundle.id) {
-    throw new Error(
-      `Baton workflow ${baton.workflow.id} does not match bundle ${options.executor.bundle.id}.`,
-    );
-  }
   const entryIds = options.mode === "continue"
     ? entryIdsFrom(baton, options.entryId)
     : [options.entryId];
