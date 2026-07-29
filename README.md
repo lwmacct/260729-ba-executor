@@ -1,5 +1,7 @@
 # Baton Automation Executor
 
+`BA` 是 Browser Automation（浏览器自动化）的缩写。
+
 `@lwmacct/260729-ba-executor` 是通用 Step Catalog Host。它可重复使用 `--pack` 加载
 多个已安装 npm 包或本地模块，启动时合并步骤并拒绝重复 Step ID。Executor 不包含任何
 OpenAI、Grok、Playwright 或特定 workflow 逻辑。
