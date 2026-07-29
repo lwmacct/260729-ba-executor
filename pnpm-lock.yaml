@@ -15,8 +15,8 @@ importers:
         specifier: ^0.5.260729
         version: 0.5.260729
       '@lwmacct/260729-ba-framework':
-        specifier: ^0.4.260729
-        version: 0.4.260729
+        specifier: ^0.5.260729
+        version: 0.5.260729
       hono:
         specifier: ^4.12.32
         version: 4.12.32
@@ -199,8 +199,8 @@ packages:
     resolution: {integrity: sha512-DGY8rQoGu5B/pHcdfGPFjGNUy7ZCQ0yegHEjvy7/nMA4pi8BI8D/vzZktLLoQmV8Vr8xI1IGBme0WqXZZJfX7Q==}
     engines: {node: '>=20'}
 
-  '@lwmacct/260729-ba-framework@0.4.260729':
-    resolution: {integrity: sha512-AqcItokPzuzrmab+pOx6ZsxPB4sv4TyEK5xOqfBFcb2oqUYCVpRV64QFXTme1nMHBhUDS0kQOvou/JtpXO9g1A==}
+  '@lwmacct/260729-ba-framework@0.5.260729':
+    resolution: {integrity: sha512-GA3rUtPKPrJTiCFA91fMD08Lop0fvE7KmnNxSUidmJ5RpP3BPYLq4f5N5SPgiIpHdI2LwqB5U6a03VejucEYJg==}
     engines: {node: '>=20'}
 
   '@types/node@26.1.2':
@@ -439,7 +439,7 @@ snapshots:
 
   '@lwmacct/260729-ba-context-baton@0.5.260729': {}
 
-  '@lwmacct/260729-ba-framework@0.4.260729':
+  '@lwmacct/260729-ba-framework@0.5.260729':
     dependencies:
       '@lwmacct/260729-ba-context-baton': 0.5.260729
 

@@ -1,6 +1,6 @@
 {
   "name": "@lwmacct/260729-ba-executor",
-  "version": "0.2.260729",
+  "version": "0.3.260730",
   "description": "Generic HTTP and CLI executor host for composable Baton Step Packs",
   "license": "Apache-2.0",
   "repository": {
@@ -33,7 +33,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.12",
     "@lwmacct/260729-ba-context-baton": "^0.5.260729",
-    "@lwmacct/260729-ba-framework": "^0.4.260729",
+    "@lwmacct/260729-ba-framework": "^0.5.260729",
     "hono": "^4.12.32"
   },
   "devDependencies": {
