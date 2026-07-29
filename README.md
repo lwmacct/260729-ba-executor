@@ -6,11 +6,13 @@ OpenAI、Grok、Playwright 或特定 workflow 逻辑。
 
 ```bash
 ba-executor serve \
+  --pack @lwmacct/260730-ba-steps-adspower \
   --pack @lwmacct/260730-ba-steps-browser \
   --pack @lwmacct/260508-ba-steps-openai \
   --port 3000
 
 ba-executor run \
+  --pack @lwmacct/260730-ba-steps-adspower \
   --pack @lwmacct/260730-ba-steps-browser \
   --pack @lwmacct/260508-ba-steps-openai \
   --context ./local.json --entry create-browser --mode continue
